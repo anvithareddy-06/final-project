@@ -52,7 +52,7 @@ Render.com for deployment
 
 Clone the repository:
 
-git clone https://github.com/anvithareddy-06/project-repo-name.git
+git clone https://github.com/anvithareddy-06/final-project.git
 cd project-repo-name
 
 Create a virtual environment:

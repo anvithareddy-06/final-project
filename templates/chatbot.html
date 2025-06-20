@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DreamPath Chatbot</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+    }
+
+    .chatbox {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-height: 100vh;
+      width: 100%;
+      max-width: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #chat-area {
+      flex-grow: 1;
+      overflow-y: auto;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      margin: 10px 0;
+    }
+
+    .user {
+      color: rgb(19, 19, 20);
+    }
+
+    .bot {
+      color: darkblue;
+    }
+
+    #chat-form {
+      display: flex;
+      gap: 10px;
+    }
+
+    #user-input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="chatbox">
+    <h3>DreamPath AI Chatbot</h3>
+    <div id="chat-area"></div>
+    <form id="chat-form">
+      <input type="text" id="user-input" placeholder="Ask anything..." required />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+<script>
+  function formatSteps(text) {
+    return text
+      .replace(/\\(Step \d+:.?)\\*/g, '<div class="step-box"><strong>$1</strong>')
+      .replace(/\* (.*?)\n?/g, '<br>▪ $1')
+      .replace(/\+ (.*?)\n?/g, '<br>&nbsp;&nbsp;&nbsp;➤ $1')
+      .replace(/\n/g, '<br>')
+      .replace(/(<\/strong>)/g, '$1</div>');
+  }
+
+  function addMessage(sender, text, showFeedback = false) {
+    const chatArea = document.getElementById('chat-area');
+    const div = document.createElement('div');
+    div.className = 'message ' + sender;
+
+    if (sender === 'bot') {
+      const botContent = document.createElement('div');
+      botContent.innerHTML = text;
+      div.appendChild(botContent);
+
+      if (showFeedback) {
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.style.marginTop = '5px';
+
+        const upBtn = document.createElement('button');
+        upBtn.textContent = '👍';
+        upBtn.addEventListener('click', () => sendFeedback(text, 'up'));
+
+        const downBtn = document.createElement('button');
+        downBtn.textContent = '👎';
+        downBtn.addEventListener('click', () => sendFeedback(text, 'down'));
+
+        feedbackDiv.appendChild(upBtn);
+        feedbackDiv.appendChild(downBtn);
+        div.appendChild(feedbackDiv);
+      }
+    } else {
+      div.textContent = text;
+    }
+
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  async function sendMessage(message) {
+    addMessage('user', message);
+
+    try {
+      const res = await fetch('/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await res.json();
+      const reply = data.reply?.trim();
+
+      if (reply) {
+        const formatted = formatSteps(reply);
+        addMessage('bot', formatted, true);
+      } else {
+        addMessage('bot', "Sorry, I couldn't generate a reply.");
+      }
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      addMessage('bot', "Sorry, something went wrong.");
+    }
+  }
+
+  async function sendFeedback(message, feedback) {
+    try {
+      const res = await fetch('/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, feedback })
+      });
+
+      if (res.ok) {
+        alert('✅ Thanks for your feedback!');
+      } else {
+        alert('❌ Feedback submission failed.');
+      }
+    } catch (err) {
+      console.error('Feedback error:', err);
+      alert('❌ Error sending feedback.');
+    }
+  }
+
+  // Utility to get query parameters
+  function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  }
+
+  // Handle career auto-question
+  window.onload = async function () {
+    const career = getQueryParam('career');
+    if (career) {
+      const input = document.getElementById('user-input');
+      const question = `How to become a ${career}?`;
+      input.value = question;
+      await sendMessage(question);
+      input.value = "";
+    }
+  };
+
+  document.getElementById("chat-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const input = document.getElementById('user-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    await sendMessage(text);
+  });
+</script>
+<script src="{{ url_for('static', filename='feedback.js') }}"></script>
+
+</body>
+</html>
+
